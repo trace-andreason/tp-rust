@@ -60,23 +60,43 @@ fn main() -> Result<()> {
             serde_json::to_writer(&stream ,&Req::Set{key: key.to_string(),value: value.to_string()})?;
             let mut br = Deserializer::from_reader(BufReader::new(&stream));  
             let resp = SetResponse::deserialize(&mut br);
-            println!("{:?}", resp);
+            //println!("{:?}", resp);
             Ok(())
         }
         Commands::Get {key, addr} => {
             let stream = TcpStream::connect(addr)?;
             serde_json::to_writer(&stream ,&Req::Get{key: key.to_string()})?;
             let mut br = Deserializer::from_reader(BufReader::new(&stream));  
-            let resp = GetResponse::deserialize(&mut br);
-            println!("{:?}", resp);
+            let resp = GetResponse::deserialize(&mut br)?;
+            match resp {
+                GetResponse::Ok(x) => {
+                    match x {
+                        Some(s) => {
+                            println!("{}", s);
+                        },
+                        None => {
+                            println!("{}", "Key not found");
+                        }
+                    }
+                },
+                GetResponse::Err(error) => {
+                    panic!("{}",error);
+                }
+            }
             Ok(())
         }
         Commands::Rm {key, addr} => {
             let stream = TcpStream::connect(addr)?;
             serde_json::to_writer(&stream ,&Req::Remove{key: key.to_string()})?;
             let mut br = Deserializer::from_reader(BufReader::new(&stream));  
-            let resp = RemoveResponse::deserialize(&mut br);
-            println!("{:?}", resp);
+            let resp = RemoveResponse::deserialize(&mut br)?;
+            match resp {
+                RemoveResponse::Ok(()) => {},
+                RemoveResponse::Err(error) => {
+                    eprint!("{}", error);
+                    exit(1);
+                }
+            }
             Ok(())
         }
     }

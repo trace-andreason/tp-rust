@@ -1,4 +1,4 @@
-use kvs::{KvStore, Result, KvsServer, KvsEngine};
+use kvs::{KvStore, Result, KvsServer, KvsEngine,Sled};
 use std::env::current_dir;
 use std::process::exit;
 use std::net::SocketAddr;
@@ -29,19 +29,22 @@ struct Args {
 fn main() -> Result<()> {
     stderrlog::new().module(module_path!()).verbosity(10).init().unwrap();
     let temp_dir = current_dir()?;
-    let mut kv = KvStore::open(temp_dir.as_path()).expect("failed to open kv");
     let cli = Args::from_args();
     info!("server version: {}", env!("CARGO_PKG_VERSION"));
     info!("listening on: {}", cli.addr);
     info!("using engine: {}", cli.engine);
     match cli.engine.as_str() {
         "kvs" => {
+            let kv = KvStore::open(temp_dir.as_path()).expect("failed to open kv");
             let kvs = KvsServer::new(kv);
-            kvs.run(cli.addr);
+            kvs.run(cli.addr)?;
             Ok(())
         },
         "sled" => {
-            panic!();
+           let sl = Sled::open(temp_dir.as_path()).expect("failed to open sled");
+            let kvs = KvsServer::new(sl);
+            kvs.run(cli.addr)?;
+           Ok(())
         },
         _ => {
             eprintln!("unsupported engine");

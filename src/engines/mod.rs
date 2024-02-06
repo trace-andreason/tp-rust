@@ -1,4 +1,4 @@
-use crate::{Result};
+use crate::Result;
 
 pub trait KvsEngine {
     fn set(&mut self, k: String, v: String) -> Result<()>;
@@ -8,3 +8,5 @@ pub trait KvsEngine {
 
 mod kvs;
 pub use self::kvs::KvStore;
+mod kvsled;
+pub use self::kvsled::Sled;

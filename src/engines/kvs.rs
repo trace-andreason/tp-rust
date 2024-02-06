@@ -1,9 +1,10 @@
-use std::io::{BufRead, BufReader, BufWriter, Read, Write, Seek};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write, Seek, ErrorKind};
 use std::path::{self, PathBuf};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use std::fs::OpenOptions;
 use crate::{KvsError, Result, KvsEngine};
+use std::fs;
 
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -22,6 +23,9 @@ pub struct KvStore{
 impl KvStore {
     pub fn open(p: &path::Path) -> Result<KvStore> {
         let f = p.join("tmp.log");
+        let meta_f = p.join("meta.txt");
+        check_meta(&meta_f)?;
+        create_meta(&meta_f)?;
         Ok(KvStore{
             kv: HashMap::new(),
             writer:  BufWriter::new(OpenOptions::new().create(true).append(true).open(f.clone())?),
@@ -59,14 +63,13 @@ impl KvStore {
     }
 
     fn compact(&mut self) -> Result<()> {
-        let mut compactor = BufWriter::new(OpenOptions::new().create(true).write(true).truncate(true).open(self.pbuf.clone())?);
+        let mut compactor: BufWriter<fs::File> = BufWriter::new(OpenOptions::new().create(true).write(true).truncate(true).open(self.pbuf.clone())?);
         for (k, v) in &mut self.kv.clone().into_iter() {
             let val =   Entry::Set{key: k, value: v};
             serde_json::to_writer(&mut compactor, &val)?;
             writeln!(compactor,"")?;
         }
         compactor.flush()?;
-        //println!("{:?}", count);
         Ok(())
     }
 
@@ -119,4 +122,40 @@ impl KvsEngine for KvStore{
         }
         Ok(())
     }
+}
+
+fn check_meta (f: &path::PathBuf) -> Result<()> {
+    let res = OpenOptions::new().read(true).open(f.clone());
+    match res {
+        Ok(f) => {
+            let s = read_meta(f);
+            if s == "kvs" {
+                return Ok(());
+            }
+            return Err(KvsError::WrongMeta);
+        },
+        Err(err) => { match err.kind() {
+            ErrorKind::NotFound => {
+                return Ok(());
+            },
+            _ => {
+                return Err(KvsError::from(err));
+            }
+        }
+        }
+    }
+}
+
+fn read_meta(mut f: fs::File) -> String {
+    let mut s = String::new();
+    if let Err(e) = f.read_to_string(&mut s) {
+        return "".to_string();
+    }
+    s
+}
+
+fn create_meta(pbuf: &path::PathBuf) -> Result<()> {
+    let mut f = OpenOptions::new().create(true).write(true).truncate(true).open(pbuf.clone())?;
+    f.write_all("kvs".as_bytes())?;
+    Ok(())
 }

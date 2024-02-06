@@ -17,3 +17,10 @@ failure = "0.1.8"
 structopt = "0.3.26"
 log = "0.4.20"
 stderrlog = "0.6.0"
+sled = "1.0.0-alpha.120"
+criterion = "0.5.1"
+rand = "0.8.5"
+
+[[bench]]
+name = "engine_bench"
+harness = false
